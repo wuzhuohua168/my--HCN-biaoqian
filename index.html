@@ -13,14 +13,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-    /* 核心：消除所有可能的像素溢出 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #f4f7f9; }
     
-    /* 预览容器样式 */
     #container { width: 100mm; margin: 0 auto; position: relative; background: #fff; }
 
-    /* 每一个页面容器 */
     .page-wrapper {
         width: 100mm;
         height: 100mm;
@@ -31,7 +28,6 @@
         margin-bottom: 5px;
     }
 
-    /* 导出模式下的特殊处理 */
     .export-mode .page-wrapper {
         margin-bottom: 0 !important;
         box-shadow: none !important;
@@ -74,7 +70,6 @@
         font-size: 18px; font-weight: bold; padding: 1mm;
     }
 
-    /* 控制面板 */
     .controls { max-width: 450px; margin: 10px auto 20px; background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
     .row { margin-bottom: 10px; }
     label { font-size: 12px; font-weight: bold; color: #666; display: block; margin-bottom: 4px; }
@@ -91,6 +86,158 @@
         font-size: 12px;
         color: #555;
         border-radius: 4px;
+    }
+
+    /* 复制按钮区域 */
+    .copy-section {
+        max-width: 450px;
+        margin: 0 auto 20px;
+        background: #fff;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        display: none;
+    }
+
+    .copy-section.show {
+        display: block;
+    }
+
+    .copy-section h3 {
+        font-size: 16px;
+        color: #333;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 10px;
+    }
+
+    .copy-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .copy-item {
+        display: flex;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    .copy-info {
+        flex: 1;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        font-size: 14px;
+        color: #333;
+        font-family: monospace;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        border: 1px solid #e0e0e0;
+    }
+
+    .copy-info-main {
+        font-weight: bold;
+        color: #000;
+    }
+
+    .copy-info-sub {
+        font-size: 12px;
+        color: #666;
+    }
+
+    .copy-btn {
+        width: 90px;
+        padding: 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .copy-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+    }
+
+    .copy-btn:active {
+        transform: translateY(0);
+    }
+
+    .copy-btn.copied {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+
+    .copy-btn-icon {
+        font-size: 20px;
+    }
+
+    .copy-all-btn {
+        width: 100%;
+        padding: 15px;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
+        margin-top: 5px;
+    }
+
+    .copy-all-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(245, 87, 108, 0.5);
+    }
+
+    .copy-all-btn:active {
+        transform: translateY(0);
+    }
+
+    .copy-all-btn.copied {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+
+    .toast {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-100px);
+        background: #28a745;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        z-index: 9999;
+        opacity: 0;
+        transition: all 0.3s ease;
+    }
+
+    .toast.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
     }
 </style>
 
@@ -119,7 +266,7 @@
     <div class="row">
         <div style="display:flex; gap:10px;">
             <div style="flex:1"><label>单号前缀</label><input type="text" id="prefix" value="HCN"></div>
-            <div style="flex:1"><label>生成件数</label><input type="number" id="qty" value=" "></div>
+            <div style="flex:1"><label>生成件数</label><input type="number" id="qty" value="1"></div>
         </div>
     </div>
     <div class="btn-group">
@@ -132,11 +279,24 @@
     </div>
 </div>
 
+<!-- 复制功能区域 -->
+
+<div class="copy-section" id="copySection">
+    <h3>
+        <span>📋</span>
+        <span>快速复制信息</span>
+    </h3>
+    <div class="copy-buttons" id="copyButtons"></div>
+</div>
+
 <div id="container"></div>
 <canvas id="temp-canvas" style="display:none;"></canvas>
 
+<div class="toast" id="toast">复制成功！</div>
+
 <script>
 let fileNameData = { mode: "", sn: "" };
+let generatedData = [];
 
 function toggleCustomMode() {
     const s = document.getElementById('mode');
@@ -159,22 +319,26 @@ function handleGenerate() {
     fileNameData.mode = modeText;
     fileNameData.sn = `${prefix}${dateStr}${randomSuffix}1`;
 
+    generatedData = [];
+
     for(let i=1; i<=qty; i++) {
         const tracking = `${prefix}${dateStr}${randomSuffix}${i}`;
-        
-        // 🔑 核心修改：条形码仅包含单号和件数信息
-        // 格式：单号-序号/总数
         const barcodeData = `${tracking}-${i}/${qty}`;
         
-        const tempCanvas = document.getElementById('temp-canvas');
+        generatedData.push({
+            mode: modeText,
+            tracking: tracking,
+            index: i,
+            total: qty
+        });
         
-        // 使用CODE128编码，设置最大尺寸以便扫码枪识别
+        const tempCanvas = document.getElementById('temp-canvas');
         JsBarcode(tempCanvas, barcodeData, { 
             format: "CODE128", 
-            width: 3.5,        // 大幅增加条宽
-            height: 150,       // 大幅增加条高
+            width: 3.5,
+            height: 150,
             displayValue: false, 
-            margin: 10         // 增加边距防止截断
+            margin: 10
         });
         
         const imgData = tempCanvas.toDataURL("image/jpeg", 1.0);
@@ -194,6 +358,83 @@ function handleGenerate() {
         `;
         container.appendChild(wrapper);
     }
+
+    updateCopyButtons();
+}
+
+function updateCopyButtons() {
+    const copySection = document.getElementById('copySection');
+    const copyButtons = document.getElementById('copyButtons');
+    
+    if (generatedData.length === 0) {
+        copySection.classList.remove('show');
+        return;
+    }
+
+    copySection.classList.add('show');
+    copyButtons.innerHTML = '';
+
+    // 只显示一条汇总信息：运输方式 + 单号前缀 + 总件数
+    if (generatedData.length > 0) {
+        const firstData = generatedData[0];
+        const totalQty = generatedData.length;
+        
+        // 提取单号前缀（去掉最后一位数字）
+        const tracking = firstData.tracking;
+        const trackingPrefix = tracking.slice(0, -1);
+        
+        const copyText = `${firstData.mode} ${trackingPrefix} ${totalQty}件`;
+        
+        const item = document.createElement('div');
+        item.className = 'copy-item';
+        item.innerHTML = `
+            <div class="copy-info">
+                <div class="copy-info-main">${firstData.mode}</div>
+                <div class="copy-info-sub">${trackingPrefix} · 共${totalQty}件</div>
+            </div>
+            <button class="copy-btn" onclick="copyToClipboard('${copyText}', this, 0)">
+                <span class="copy-btn-icon">📋</span>
+                <span>复制</span>
+            </button>
+        `;
+        copyButtons.appendChild(item);
+    }
+}
+
+async function copyToClipboard(text, btn, index) {
+    try {
+        await navigator.clipboard.writeText(text);
+        
+        const originalHTML = btn.innerHTML;
+        btn.classList.add('copied');
+        
+        btn.innerHTML = `
+            <span class="copy-btn-icon">✓</span>
+            <span>已复制</span>
+        `;
+        
+        showToast('复制成功！');
+        
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = originalHTML;
+        }, 2000);
+        
+    } catch (err) {
+        console.error('复制失败:', err);
+        showToast('复制失败，请手动复制', true);
+    }
+}
+
+function showToast(message, isError = false) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.style.background = isError ? '#dc3545' : '#28a745';
+    toast.classList.add('show');
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 2000);
 }
 
 async function handleExport() {
