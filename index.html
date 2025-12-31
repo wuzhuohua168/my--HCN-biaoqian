@@ -32,15 +32,15 @@
         .size-80-80 { width: 80mm; height: 80mm; }
 
         .label-content { width: 100%; height: 100%; padding: 4mm; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
-        .header-mode { width: 100%; text-align: center; font-size: 18px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 1.5mm; }
+        .header-mode { width: 100%; text-align: center; font-size: 18px; font-weight: bold; border-bottom: 2.5px solid #000; padding-bottom: 1.5mm; }
         .big-qty { font-size: 32px; font-weight: 900; line-height: 1.1; }
-        .big-tracking { font-size: 18px; font-weight: 900; font-family: monospace; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 1.5mm 0; margin: 1.5mm 0; width: 100%; text-align: center; }
+        .big-tracking { font-size: 18px; font-weight: 900; font-family: monospace; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 1.5mm 0; margin: 1.5mm 0; width: 100%; text-align: center; }
         .code-area { width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .barcode-img { max-width: 100%; height: auto; }
-        .qrcode-img { height: 100%; width: auto; max-height: 120px; }
-        .footer-made { width: 100%; border: 1.5px solid #000; text-align: center; font-size: 16px; font-weight: bold; padding: 1mm; }
+        .qrcode-img { height: 100%; width: auto; max-height: 130px; }
+        .footer-made { width: 100%; border: 2px solid #000; text-align: center; font-size: 16px; font-weight: bold; padding: 1mm; }
 
-        .toast { position: fixed; top: 20px; left: 50%; transform: translateX( -50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 20px; z-index: 10000; opacity: 0; transition: 0.3s; pointer-events: none; font-size: 13px; }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 20px; z-index: 10000; opacity: 0; transition: 0.3s; pointer-events: none; font-size: 13px; }
         .toast.show { opacity: 1; top: 30px; }
     </style>
 </head>
@@ -132,21 +132,36 @@ function handleGenerate() {
     };
 
     for(let i=1; i<=qty; i++) {
-        const fullTracking = `${mainTracking}-${i}`;
+        // 关键逻辑：码内包含的信息 (格式：单号-当前件 | 当前件/总数)
+        // 例如：HCN-251230123-1 | 1/10
+        const displayLabel = `${i} / ${qty}`;
+        const trackingWithCounter = `${mainTracking}-${i}`;
+        const codeContent = `${trackingWithCounter} | ${displayLabel}`;
+        
         const wrapper = document.createElement('div');
         wrapper.className = `page-wrapper ${sizeClass}`;
         
         let codeDataUrl = '';
         if(codeType === 'BARCODE') {
             const tempCanvas = document.getElementById('temp-canvas');
-            JsBarcode(tempCanvas, fullTracking, { format: "CODE128", width: 2, height: 60, displayValue: false });
+            // 条形码由于长度限制，尽量精简但保留核心
+            JsBarcode(tempCanvas, codeContent, { 
+                format: "CODE128", 
+                width: 1.8, 
+                height: 70, 
+                displayValue: false,
+                margin: 0
+            });
             codeDataUrl = tempCanvas.toDataURL('image/png');
         } else {
-            // 修复二维码不显示 Bug：直接操作 DOM 生成并转换图片
             const qrBox = document.getElementById('qr-gen-box');
             qrBox.innerHTML = '';
-            new QRCode(qrBox, { text: fullTracking, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.H });
-            // 提取 QRCode 生成的 Canvas
+            new QRCode(qrBox, { 
+                text: codeContent, 
+                width: 250, 
+                height: 250, 
+                correctLevel: QRCode.CorrectLevel.M 
+            });
             const qrCanvas = qrBox.querySelector('canvas');
             codeDataUrl = qrCanvas.toDataURL('image/png');
         }
@@ -155,8 +170,8 @@ function handleGenerate() {
             <div class="label-content">
                 <div class="header-mode">${modeText}</div>
                 <div style="text-align:center">
-                    <div class="big-qty">${i} / ${qty}</div>
-                    <div class="big-tracking">${fullTracking}</div>
+                    <div class="big-qty">${displayLabel}</div>
+                    <div class="big-tracking">${trackingWithCounter}</div>
                 </div>
                 <div class="code-area">
                     <img src="${codeDataUrl}" class="${codeType === 'BARCODE' ? 'barcode-img' : 'qrcode-img'}">
@@ -198,14 +213,14 @@ async function handleExportPDF() {
         for (let i = 0; i < pages.length; i++) {
             const canvas = await html2canvas(pages[i], { scale: 2, useCORS: true });
             if (i > 0) pdf.addPage(dimensions);
-            pdf.addImage(canvas.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, dimensions[0], dimensions[1]);
+            pdf.addImage(canvas.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, dimensions[0], dimensions[1], undefined, 'FAST');
         }
         const fileName = `${lastBatchData.mode}_${lastBatchData.mainTracking}_${lastBatchData.total}件.pdf`;
         const pdfBlob = pdf.output('blob');
         const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
         if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-            await navigator.share({ files: [pdfFile], title: 'HCN标签' });
+            await navigator.share({ files: [pdfFile], title: 'HCN物流标签' });
         } else {
             pdf.save(fileName);
         }
