@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>标签工作台 Pro</title>
+    <title>标签工作台Pro</title>
 
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -52,12 +52,14 @@
         <select id="mode" onchange="toggleCustomMode()">
             <option>大陆飞日本🇯🇵</option><option>香港飞日本🇯🇵</option><option>国际快递</option>
             <option>普船海运GS</option><option>普船海运包税</option><option>快船包税</option>
+            <option>普船🚢</option><option>快船🚢</option><option>小包</option>
             <option>普船商业件</option><option>快船商业件</option><option>20呎整柜商业件</option>
             <option>40呎整柜商业件</option><option>佐川小包</option><option>EMS快递</option>
             <option>空运超大件</option> <option>海运超大件</option>
             <option>食品届</option><option>食品专线</option>
             <option>日本仓电池</option><option>日本🇯🇵回国</option>
             <option>HCN Supply Chain (Shenzhen) Co., Ltd.</option>
+            <option>Shenzhen Hengji Chengda Business Co., Ltd.</option>
             <option value="CUSTOM">-- 手动输入 --</option>
         </select>
         <input type="text" id="custom-mode-input" placeholder="输入运输方式" style="display:none; margin-top:8px;">
@@ -94,8 +96,8 @@
     </div>
 
     <div class="copyright-info">
-        <div style="font-weight:bold; color: #000;">© HCN Supply Chain (Shenzhen) Co., Ltd.</div>
-        <div style="color: #444;">日本跨境物流联系📞 Joyhua 19867541192</div>
+        <div style="font-weight:bold; color: #000;">© Shenzhen Hengji Chengda Business Co., Ltd.</div>
+        <div style="color: #444;">日本清关配送联系📞 HGCD恒然 19867541192</div>
     </div>
 </div>
 
@@ -115,7 +117,7 @@ function toggleCustomMode() {
 
 function handleGenerate() {
     const qty = parseInt(document.getElementById('qty').value) || 1;
-    const prefix = document.getElementById('prefix').value || "HCN-";
+    const prefix = document.getElementById('prefix').value || "HGCD";
     const modeSelect = document.getElementById('mode');
     const modeText = (modeSelect.value === "CUSTOM") ? document.getElementById('custom-mode-input').value : modeSelect.options[modeSelect.selectedIndex].text;
     const sizeClass = document.getElementById('label-size').value;
@@ -222,7 +224,7 @@ async function handleExportPDF() {
         const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
         if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-            await navigator.share({ files: [pdfFile], title: 'HCN物流标签' });
+            await navigator.share({ files: [pdfFile], title: '物流标签' });
         } else {
             pdf.save(fileName);
         }
