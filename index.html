@@ -21,6 +21,7 @@
         
         .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 15px; }
         .btn-main { padding: 14px 5px; border: none; border-radius: 8px; font-weight: bold; color: #fff; cursor: pointer; font-size: 13px; }
+        .btn-main:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .copyright-info { background: #FFD700; color: #333; padding: 12px; margin-top: 15px; font-size: 11px; border-radius: 8px; text-align: center; line-height: 1.5; border: 1px solid #DAA520; }
 
@@ -42,11 +43,19 @@
 
         .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 20px; z-index: 10000; opacity: 0; transition: 0.3s; pointer-events: none; font-size: 13px; }
         .toast.show { opacity: 1; top: 30px; }
+        
+        .progress-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; display: none; align-items: center; justify-content: center; }
+        .progress-box { background: #fff; padding: 30px 40px; border-radius: 16px; text-align: center; }
+        .progress-bar { width: 200px; height: 8px; background: #eee; border-radius: 4px; margin: 15px 0; overflow: hidden; }
+        .progress-fill { height: 100%; background: #4a90e2; width: 0%; transition: width 0.3s; }
+        .progress-text { font-size: 14px; color: #666; }
+
+        @media print { .no-print { display: none; } }
     </style>
 </head>
 <body>
 
-<div class="controls">
+<div class="controls no-print">
     <div class="row">
         <label>运输方式</label>
         <select id="mode" onchange="toggleCustomMode()">
@@ -58,8 +67,8 @@
             <option>空运超大件</option> <option>海运超大件</option>
             <option>食品届</option><option>食品专线</option>
             <option>日本仓电池</option><option>日本🇯🇵回国</option>
-            <option>HCN Supply Chain (Shenzhen) Co., Ltd.</option>
-            <option>Shenzhen Hengji Chengda Business Co., Ltd.</option>
+            <option>HCN Supply Chain (Shenzhen) Co., Ltd.</option>
+            <option>Shenzhen Hengji Chengda Business Co., Ltd.</option>
             <option value="CUSTOM">-- 手动输入 --</option>
         </select>
         <input type="text" id="custom-mode-input" placeholder="输入运输方式" style="display:none; margin-top:8px;">
@@ -96,7 +105,7 @@
     </div>
 
     <div class="copyright-info">
-        <div style="font-weight:bold; color: #000;">© Shenzhen Hengji Chengda Business Co., Ltd.</div>
+        <div style="font-weight:bold; color: #000;">© Shenzhen Hengji Chengda Business Co., Ltd.</div>
         <div style="color: #444;">日本清关配送联系📞 HGCD恒然 19867541192</div>
     </div>
 </div>
@@ -104,15 +113,77 @@
 <div id="container"></div>
 <div id="toast" class="toast">操作成功</div>
 
-<canvas id="temp-canvas" style="display:none;"></canvas>
-<div id="qr-gen-box" style="display:none;"></div>
+<div class="progress-overlay" id="progress-overlay">
+    <div class="progress-box">
+        <div class="progress-text" id="progress-text">正在生成...</div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-text" id="progress-detail">0 / 0</div>
+    </div>
+</div>
+
+<div id="temp-qr" style="display:none;"></div>
 
 <script>
 let lastBatchData = null;
+const PREVIEW_LIMIT = 50;
 
 function toggleCustomMode() {
     const isCustom = document.getElementById('mode').value === "CUSTOM";
     document.getElementById('custom-mode-input').style.display = isCustom ? "block" : "none";
+}
+
+function showProgress(show) {
+    document.getElementById('progress-overlay').style.display = show ? 'flex' : 'none';
+}
+
+function updateProgress(current, total, text) {
+    const pct = Math.round((current / total) * 100);
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-detail').textContent = `${current} / ${total}`;
+    if (text) document.getElementById('progress-text').textContent = text;
+}
+
+function generateCodeDataUrl(codeType, codeContent) {
+    if (codeType === 'BARCODE') {
+        const canvas = document.createElement('canvas');
+        JsBarcode(canvas, codeContent, { 
+            format: "CODE128", 
+            width: 1.8, 
+            height: 70, 
+            displayValue: false,
+            margin: 0
+        });
+        return canvas.toDataURL('image/png');
+    } else {
+        const qrBox = document.getElementById('temp-qr');
+        qrBox.innerHTML = '';
+        new QRCode(qrBox, { 
+            text: codeContent, 
+            width: 250, 
+            height: 250, 
+            correctLevel: QRCode.CorrectLevel.M 
+        });
+        const qrCanvas = qrBox.querySelector('canvas');
+        return qrCanvas.toDataURL('image/png');
+    }
+}
+
+function createLabelElement(modeText, displayLabel, trackingWithCounter, codeDataUrl, codeType, sizeClass) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `page-wrapper ${sizeClass}`;
+    wrapper.innerHTML = `
+        <div class="label-content">
+            <div class="header-mode">${modeText}</div>
+            <div style="text-align:center">
+                <div class="big-qty">${displayLabel}</div>
+                <div class="big-tracking">${trackingWithCounter}</div>
+            </div>
+            <div class="code-area">
+                <img src="${codeDataUrl}" class="${codeType === 'BARCODE' ? 'barcode-img' : 'qrcode-img'}">
+            </div>
+            <div class="footer-made">MADE IN CHINA</div>
+        </div>`;
+    return wrapper;
 }
 
 function handleGenerate() {
@@ -132,59 +203,28 @@ function handleGenerate() {
 
     lastBatchData = { 
         mode: modeText, mainTracking: mainTracking, total: qty, 
-        date: now.toLocaleDateString(), size: sizeClass 
+        date: now.toLocaleDateString(), size: sizeClass, codeType: codeType
     };
 
-    for(let i=1; i<=qty; i++) {
-        // 关键逻辑：码内包含的信息 (格式：单号-当前件 | 当前件/总数)
-        // 例如：HCN-251230123-1 | 1/10
+    const previewCount = Math.min(qty, PREVIEW_LIMIT);
+    
+    for (let i = 1; i <= previewCount; i++) {
         const displayLabel = `${i} / ${qty}`;
         const trackingWithCounter = `${mainTracking}-${i}`;
         const codeContent = `${trackingWithCounter} | ${displayLabel}`;
-        
-        const wrapper = document.createElement('div');
-        wrapper.className = `page-wrapper ${sizeClass}`;
-        
-        let codeDataUrl = '';
-        if(codeType === 'BARCODE') {
-            const tempCanvas = document.getElementById('temp-canvas');
-            // 条形码由于长度限制，尽量精简但保留核心
-            JsBarcode(tempCanvas, codeContent, { 
-                format: "CODE128", 
-                width: 1.8, 
-                height: 70, 
-                displayValue: false,
-                margin: 0
-            });
-            codeDataUrl = tempCanvas.toDataURL('image/png');
-        } else {
-            const qrBox = document.getElementById('qr-gen-box');
-            qrBox.innerHTML = '';
-            new QRCode(qrBox, { 
-                text: codeContent, 
-                width: 250, 
-                height: 250, 
-                correctLevel: QRCode.CorrectLevel.M 
-            });
-            const qrCanvas = qrBox.querySelector('canvas');
-            codeDataUrl = qrCanvas.toDataURL('image/png');
-        }
-
-        wrapper.innerHTML = `
-            <div class="label-content">
-                <div class="header-mode">${modeText}</div>
-                <div style="text-align:center">
-                    <div class="big-qty">${displayLabel}</div>
-                    <div class="big-tracking">${trackingWithCounter}</div>
-                </div>
-                <div class="code-area">
-                    <img src="${codeDataUrl}" class="${codeType === 'BARCODE' ? 'barcode-img' : 'qrcode-img'}">
-                </div>
-                <div class="footer-made">MADE IN CHINA</div>
-            </div>`;
+        const codeDataUrl = generateCodeDataUrl(codeType, codeContent);
+        const wrapper = createLabelElement(modeText, displayLabel, trackingWithCounter, codeDataUrl, codeType, sizeClass);
         container.appendChild(wrapper);
     }
-    showToast("预览已生成");
+    
+    if (qty > PREVIEW_LIMIT) {
+        const notice = document.createElement('div');
+        notice.style.cssText = 'text-align:center;padding:20px;color:#666;font-size:14px;';
+        notice.innerHTML = `预览显示前 ${PREVIEW_LIMIT} 个标签<br>PDF导出将包含全部 ${qty} 个标签`;
+        container.appendChild(notice);
+    }
+    
+    showToast(`已生成预览 (共${qty}件)`);
 }
 
 function copyInfo() {
@@ -200,36 +240,91 @@ function copyInfo() {
 }
 
 async function handleExportPDF() {
-    const pages = document.querySelectorAll('.page-wrapper');
-    if(pages.length === 0) return alert("请先生成预览");
+    if (!lastBatchData) return alert("请先生成预览");
+    
     const btn = document.getElementById('btn-share');
+    btn.disabled = true;
     btn.innerText = "生成中...";
-
-    const dimensions = {
-        'size-100-100': [100, 100],
-        'size-100-50': [100, 50],
-        'size-80-80': [80, 80]
-    }[lastBatchData.size];
+    showProgress(true);
+    
+    const { mode, mainTracking, total, size, codeType } = lastBatchData;
+    
+    let pW = 100, pH = 100;
+    if (size === 'size-100-50') { pW = 100; pH = 50; }
+    if (size === 'size-80-80') { pW = 80; pH = 80; }
 
     try {
         const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ unit: 'mm', format: dimensions, compress: true });
-        for (let i = 0; i < pages.length; i++) {
-            const canvas = await html2canvas(pages[i], { scale: 2, useCORS: true });
-            if (i > 0) pdf.addPage(dimensions);
-            pdf.addImage(canvas.toDataURL('image/jpeg', 0.8), 'JPEG', 0, 0, dimensions[0], dimensions[1], undefined, 'FAST');
+        const pdf = new jsPDF({ unit: 'mm', format: [pW, pH], compress: true });
+        
+        const tempContainer = document.createElement('div');
+        tempContainer.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
+        document.body.appendChild(tempContainer);
+        
+        for (let i = 1; i <= total; i++) {
+            updateProgress(i, total, `正在生成标签 ${i}/${total}`);
+            
+            const displayLabel = `${i} / ${total}`;
+            const trackingWithCounter = `${mainTracking}-${i}`;
+            const codeContent = `${trackingWithCounter} | ${displayLabel}`;
+            const codeDataUrl = generateCodeDataUrl(codeType, codeContent);
+            
+            const wrapper = createLabelElement(mode, displayLabel, trackingWithCounter, codeDataUrl, codeType, size);
+            tempContainer.innerHTML = '';
+            tempContainer.appendChild(wrapper);
+            
+            await new Promise(r => setTimeout(r, 5));
+            
+            const canvas = await html2canvas(wrapper, { 
+                scale: 1.5, 
+                useCORS: true, 
+                logging: false 
+            });
+            
+            const imgData = canvas.toDataURL('image/jpeg', 0.75);
+            if (i > 1) pdf.addPage([pW, pH]);
+            pdf.addImage(imgData, 'JPEG', 0, 0, pW, pH);
+            
+            canvas.width = 0;
+            canvas.height = 0;
+            
+            if (i % 10 === 0) {
+                await new Promise(r => setTimeout(r, 20));
+            }
         }
-        const fileName = `${lastBatchData.mode}_${lastBatchData.mainTracking}_${lastBatchData.total}件.pdf`;
+        
+        document.body.removeChild(tempContainer);
+        
+        updateProgress(total, total, '正在保存PDF...');
+        await new Promise(r => setTimeout(r, 100));
+        
+        const fileName = `${mode}_${mainTracking}_${total}件.pdf`;
         const pdfBlob = pdf.output('blob');
         const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
+        let shared = false;
         if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-            await navigator.share({ files: [pdfFile], title: '物流标签' });
-        } else {
-            pdf.save(fileName);
+            try {
+                await navigator.share({ files: [pdfFile], title: '物流标签' });
+                shared = true;
+                showToast("PDF分享成功");
+            } catch (shareErr) {
+                console.log('分享取消或不支持，改为下载:', shareErr);
+            }
         }
-    } catch (err) { alert("生成失败"); }
-    finally { btn.innerText = "3. 分享 PDF"; }
+        
+        if (!shared) {
+            pdf.save(fileName);
+            showToast("PDF已下载");
+        }
+    } catch (err) {
+        console.error('PDF生成错误:', err);
+        alert("生成失败: " + (err.message || '未知错误'));
+    } finally {
+        showProgress(false);
+        btn.disabled = false;
+        btn.innerText = "3. 分享 PDF";
+    }
 }
 
 function handleExportCSV() {
